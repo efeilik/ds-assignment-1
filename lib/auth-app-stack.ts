@@ -2,7 +2,7 @@ import * as cdk from "aws-cdk-lib";
 import { Construct } from "constructs";
 import { UserPool } from "aws-cdk-lib/aws-cognito";
 import { AuthApi } from './auth-api'
-import {AppApi } from './app-api'
+import { AppApi } from './app-api'
 import * as apigateway from "aws-cdk-lib/aws-apigateway";
 import * as dynamodb from "aws-cdk-lib/aws-dynamodb";
 import * as custom from "aws-cdk-lib/custom-resources";
@@ -27,6 +27,13 @@ export class AuthAppStack extends cdk.Stack {
       sortKey: { name: "seasonYear", type: dynamodb.AttributeType.STRING },
       removalPolicy: cdk.RemovalPolicy.DESTROY,
       tableName: "PlayerStats",
+    });
+    const translatedStatsTable = new dynamodb.Table(this, "TranslatedStatsTable", {
+      partitionKey: { name: "playerIdSeasonYear", type: dynamodb.AttributeType.STRING },
+      sortKey: { name: "language", type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+      tableName: "TranslatedStats",
     });
     new custom.AwsCustomResource(this, "playersAndStatsDdbInitData", {
       onCreate: {
@@ -62,16 +69,17 @@ export class AuthAppStack extends cdk.Stack {
     new AuthApi(this, 'AuthServiceApi', {
       userPoolId: userPoolId,
       userPoolClientId: userPoolClientId,
-      
+
     });
 
     new AppApi(this, 'AppApi', {
       userPoolId: userPoolId,
       userPoolClientId: userPoolClientId,
       playersTable: playersTable,
-      playerStatsTable: playerStatsTable
-    } );
+      playerStatsTable: playerStatsTable,
+      translatedStatsTable: translatedStatsTable
+    });
 
-  } 
+  }
 
 }
