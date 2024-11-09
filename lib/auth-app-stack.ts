@@ -62,11 +62,14 @@ export class AuthAppStack extends cdk.Stack {
     new AuthApi(this, 'AuthServiceApi', {
       userPoolId: userPoolId,
       userPoolClientId: userPoolClientId,
+      
     });
 
     new AppApi(this, 'AppApi', {
       userPoolId: userPoolId,
       userPoolClientId: userPoolClientId,
+      playersTable: playersTable,
+      playerStatsTable: playerStatsTable
     } );
 
   } 
