@@ -54,7 +54,7 @@ export class AppApi extends Construct {
                 timeout: cdk.Duration.seconds(10),
                 memorySize: 128,
                 environment: {
-                    TABLE_NAME: props.playerStatsTable.tableName,
+                    PLAYER_STATS_TABLE: props.playerStatsTable.tableName,
                     REGION: 'eu-west-1',
                 },
             }
@@ -89,7 +89,13 @@ export class AppApi extends Construct {
             },
         });
 
+        const addPlayerStatsFn = new node.NodejsFunction(this, "addPlayerStatsFn", {
+            ...appCommonFnProps,
+            entry: "./lambda/app/addPlayerStats.ts",
+        });
+        
         //Permissions
+        props.playerStatsTable.grantReadWriteData(addPlayerStatsFn);
         props.playerStatsTable.grantReadData(getAllStatsFn);
         props.playerStatsTable.grantReadData(getStatByIdFn);
         props.playerStatsTable.grantReadData(translateItemFn);
@@ -98,22 +104,10 @@ export class AppApi extends Construct {
             actions: ["translate:TranslateText"],
             resources: ["*"],
         }));
-        const protectedRes = appApi.root.addResource("protected");
-        const publicRes = appApi.root.addResource("public");
         const statsRes = appApi.root.addResource("stats");
         const playerIdRes = statsRes.addResource("{playerId}");
         const seasonYearRes = playerIdRes.addResource("{seasonYear}");
         const translationRes = seasonYearRes.addResource("translation");
-
-        const protectedFn = new node.NodejsFunction(this, "ProtectedFn", {
-            ...appCommonFnProps,
-            entry: "./lambda/protected.ts",
-        });
-
-        const publicFn = new node.NodejsFunction(this, "PublicFn", {
-            ...appCommonFnProps,
-            entry: "./lambda/public.ts",
-        });
 
         const authorizerFn = new node.NodejsFunction(this, "AuthorizerFn", {
             ...appCommonFnProps,
@@ -130,12 +124,10 @@ export class AppApi extends Construct {
             }
         );
 
-        protectedRes.addMethod("GET", new apig.LambdaIntegration(protectedFn), {
+        statsRes.addMethod("POST", new apig.LambdaIntegration(addPlayerStatsFn, {proxy: true}), {
             authorizer: requestAuthorizer,
             authorizationType: apig.AuthorizationType.CUSTOM,
         });
-
-        publicRes.addMethod("GET", new apig.LambdaIntegration(publicFn));
 
         playerIdRes.addMethod("GET", new apig.LambdaIntegration(getStatByIdFn));
 
