@@ -9,17 +9,17 @@ import {
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocumentClient, GetCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
 
-// import Ajv from "ajv";
-// import schema from "../../shared/types.schema.json";
+import Ajv from "ajv";
+import schema from "../../shared/types.schema.json";
 
-// const ajv = new Ajv();
-// const isValidBodyParams = ajv.compile(schema.definitions["UpdatePlayerStats"] || {});
+const ajv = new Ajv();
+const isValidBodyParams = ajv.compile(schema.definitions["UpdatePlayerStats"] || {});
 const ddbDocClient = createDDbDocClient();
 
 export const handler: APIGatewayProxyHandlerV2 = async (event: any) => {
     try {
         console.log("[EVENT]", JSON.stringify(event));
-    
+
         const parameters = event?.pathParameters;
         const playerId = parameters?.playerId ? parseInt(parameters?.playerId) : undefined;
         const seasonYear = event.queryStringParameters?.seasonYear;
@@ -51,25 +51,25 @@ export const handler: APIGatewayProxyHandlerV2 = async (event: any) => {
         const body = event.body ? JSON.parse(event.body) : undefined;
         if (!body) {
             return {
-            statusCode: 500,
-            headers: {
-                "content-type": "application/json",
-            },
-            body: JSON.stringify({ message: "Missing request body" }),
+                statusCode: 500,
+                headers: {
+                    "content-type": "application/json",
+                },
+                body: JSON.stringify({ message: "Missing request body" }),
             };
         }
-        //   if (!isValidBodyParams(body)) {
-        //     return {
-        //       statusCode: 500,
-        //       headers: {
-        //         "content-type": "application/json",
-        //       },
-        //       body: JSON.stringify({
-        //         message: `Incorrect type. Must match PlayerStats schema`,
-        //         schema: schema.definitions["UpdatePlayerStats"],
-        //       }),
-        //     };
-        //   }
+        if (!isValidBodyParams(body)) {
+            return {
+                statusCode: 500,
+                headers: {
+                    "content-type": "application/json",
+                },
+                body: JSON.stringify({
+                    message: `Incorrect type. Must match PlayerStats schema`,
+                    schema: schema.definitions["UpdatePlayerStats"],
+                }),
+            };
+        }
 
         const userId = verifiedJwt.sub;
 
@@ -108,26 +108,26 @@ export const handler: APIGatewayProxyHandlerV2 = async (event: any) => {
         return {
             statusCode: 200,
             body: JSON.stringify({ message: "PlayerStat updated successfully." }),
-    };
-    } catch(error: any) {
+        };
+    } catch (error: any) {
         return {
             statusCode: 500,
-            body: JSON.stringify({error}),
+            body: JSON.stringify({ error }),
         };
     }
-    
+
 };
 
 function createDDbDocClient() {
     const ddbClient = new DynamoDBClient({ region: process.env.REGION });
     const marshallOptions = {
-      convertEmptyValues: true,
-      removeUndefinedValues: true,
-      convertClassInstanceToMap: true,
+        convertEmptyValues: true,
+        removeUndefinedValues: true,
+        convertClassInstanceToMap: true,
     };
     const unmarshallOptions = {
-      wrapNumbers: false,
+        wrapNumbers: false,
     };
     const translateConfig = { marshallOptions, unmarshallOptions };
     return DynamoDBDocumentClient.from(ddbClient, translateConfig);
-  }
+}

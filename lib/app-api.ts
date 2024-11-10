@@ -40,53 +40,26 @@ export class AppApi extends Construct {
                 REGION: cdk.Aws.REGION,
                 PLAYERS_TABLE: props.playersTable.tableName,
                 PLAYER_STATS_TABLE: props.playerStatsTable.tableName,
+                TRANSLATED_STATS_TABLE: props.translatedStatsTable.tableName,
             },
         };
 
         //Functions
-        const getAllStatsFn = new lambdanode.NodejsFunction(
-            this,
-            "GetAllStatsFn",
-            {
-                architecture: lambda.Architecture.ARM_64,
-                runtime: lambda.Runtime.NODEJS_18_X,
-                entry: `${__dirname}/../lambda/app/getAllStats.ts`,
-                timeout: cdk.Duration.seconds(10),
-                memorySize: 128,
-                environment: {
-                    PLAYER_STATS_TABLE: props.playerStatsTable.tableName,
-                    REGION: 'eu-west-1',
-                },
+        const getAllStatsFn = new lambdanode.NodejsFunction(this, "GetAllStatsFn",{
+            ...appCommonFnProps,
+            entry: `${__dirname}/../lambda/app/getAllStats.ts`,
             }
         );
 
-        const getStatByIdFn = new lambdanode.NodejsFunction(
-            this,
-            "GetStatByIdFn",
-            {
-                architecture: lambda.Architecture.ARM_64,
-                runtime: lambda.Runtime.NODEJS_18_X,
-                entry: `${__dirname}/../lambda/app/getStatById.ts`,
-                timeout: cdk.Duration.seconds(10),
-                memorySize: 128,
-                environment: {
-                    PLAYER_STATS_TABLE: props.playerStatsTable.tableName,
-                    REGION: 'eu-west-1',
-                },
+        const getStatByIdFn = new lambdanode.NodejsFunction(this, "GetStatByIdFn",{
+            ...appCommonFnProps,
+            entry: `${__dirname}/../lambda/app/getStatById.ts`,
             }
         );
 
         const translateItemFn = new lambdanode.NodejsFunction(this, "TranslateItemFn", {
-            architecture: lambda.Architecture.ARM_64,
-            runtime: lambda.Runtime.NODEJS_16_X,
+            ...appCommonFnProps,
             entry: `${__dirname}/../lambda/app/getStatTranslated.ts`,
-            timeout: cdk.Duration.seconds(10),
-            memorySize: 128,
-            environment: {
-                PLAYER_STATS_TABLE: props.playerStatsTable.tableName,
-                TRANSLATED_STATS_TABLE: props.translatedStatsTable.tableName,
-                REGION: 'eu-west-1',
-            },
         });
 
         const addPlayerStatsFn = new node.NodejsFunction(this, "addPlayerStatsFn", {
@@ -98,7 +71,7 @@ export class AppApi extends Construct {
             ...appCommonFnProps,
             entry: "./lambda/app/updatePlayerStats.ts",
         });
-        
+
         //Permissions
         props.playerStatsTable.grantReadWriteData(addPlayerStatsFn);
         props.playerStatsTable.grantReadWriteData(updatePlayerStatsFn);
@@ -110,6 +83,8 @@ export class AppApi extends Construct {
             actions: ["translate:TranslateText"],
             resources: ["*"],
         }));
+
+        //REST API
         const statsRes = appApi.root.addResource("stats");
         const playerIdRes = statsRes.addResource("{playerId}");
         const seasonYearRes = playerIdRes.addResource("{seasonYear}");
@@ -130,18 +105,18 @@ export class AppApi extends Construct {
             }
         );
 
-        statsRes.addMethod("POST", new apig.LambdaIntegration(addPlayerStatsFn, {proxy: true}), {
+        statsRes.addMethod("POST", new apig.LambdaIntegration(addPlayerStatsFn, { proxy: true }), {
             authorizer: requestAuthorizer,
             authorizationType: apig.AuthorizationType.CUSTOM,
         });
-
+        statsRes.addMethod("GET", new apig.LambdaIntegration(getAllStatsFn));
         playerIdRes.addMethod("PUT", new apig.LambdaIntegration(updatePlayerStatsFn), {
             authorizer: requestAuthorizer,
             authorizationType: apig.AuthorizationType.CUSTOM,
         });
 
         playerIdRes.addMethod("GET", new apig.LambdaIntegration(getStatByIdFn));
-        
+
         translationRes.addMethod("GET", new apig.LambdaIntegration(translateItemFn));
     }
 }
