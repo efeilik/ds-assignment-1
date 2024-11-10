@@ -93,9 +93,15 @@ export class AppApi extends Construct {
             ...appCommonFnProps,
             entry: "./lambda/app/addPlayerStats.ts",
         });
+
+        const updatePlayerStatsFn = new node.NodejsFunction(this, "updatePlayerStatsFn", {
+            ...appCommonFnProps,
+            entry: "./lambda/app/updatePlayerStats.ts",
+        });
         
         //Permissions
         props.playerStatsTable.grantReadWriteData(addPlayerStatsFn);
+        props.playerStatsTable.grantReadWriteData(updatePlayerStatsFn);
         props.playerStatsTable.grantReadData(getAllStatsFn);
         props.playerStatsTable.grantReadData(getStatByIdFn);
         props.playerStatsTable.grantReadData(translateItemFn);
@@ -129,8 +135,13 @@ export class AppApi extends Construct {
             authorizationType: apig.AuthorizationType.CUSTOM,
         });
 
-        playerIdRes.addMethod("GET", new apig.LambdaIntegration(getStatByIdFn));
+        playerIdRes.addMethod("PUT", new apig.LambdaIntegration(updatePlayerStatsFn), {
+            authorizer: requestAuthorizer,
+            authorizationType: apig.AuthorizationType.CUSTOM,
+        });
 
+        playerIdRes.addMethod("GET", new apig.LambdaIntegration(getStatByIdFn));
+        
         translationRes.addMethod("GET", new apig.LambdaIntegration(translateItemFn));
     }
 }
